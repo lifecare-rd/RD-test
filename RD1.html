@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>R&D Progress Control & Dashboard</title>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg-light: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-light);
+            color: var(--text-main);
+            padding: 24px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-main);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .stat-card .val {
+            font-size: 28px;
+            font-weight: 700;
+            margin-top: 4px;
+        }
+
+        .stat-card .label {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .stat-icon {
+            font-size: 32px;
+            opacity: 0.8;
+        }
+
+        /* Charts Layout */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        /* Button Styles */
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover { opacity: 0.9; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-main); }
+        .btn-outline:hover { background: #f1f5f9; }
+
+        /* Table Styles */
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        th, td {
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+
+        th {
+            background: #f8fafc;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        /* Badges */
+        .badge {
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .badge-ontime { background: #dcfce7; color: #15803d; }
+        .badge-delayed { background: #fee2e2; color: #b91c1c; }
+
+        /* Progress Bar */
+        .progress-bar-container {
+            width: 100%;
+            background: #e2e8f0;
+            border-radius: 6px;
+            height: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            border-radius: 6px;
+            transition: width 0.3s;
+        }
+
+        /* Modal */
+        .modal-backdrop {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 580px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .modal-header {
+            padding: 16px 20px;
+            background: #f8fafc;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-footer {
+            padding: 12px 20px;
+            background: #f8fafc;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .mail-preview {
+            background: #f1f5f9;
+            border-left: 4px solid var(--primary);
+            padding: 12px;
+            font-size: 13px;
+            color: #334155;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            line-height: 1.5;
+            font-family: monospace;
+        }
+
+        /* Toast Alert */
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 8px;
+            padding: 12px 16px;
+            position: fixed;
+            z-index: 2000;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%);
+            font-size: 14px;
+        }
+
+        #toast.show {
+            visibility: visible;
+            animation: fadein 0.3s, fadeout 0.3s 2.5s;
+        }
+
+        @keyframes fadein { from { bottom: 0; opacity: 0; } to { bottom: 30px; opacity: 1; } }
+        @keyframes fadeout { from { bottom: 30px; opacity: 1; } to { bottom: 0; opacity: 0; } }
+
+        @media (max-width: 992px) {
+            .dashboard-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Section -->
+    <div class="header">
+        <div>
+            <h1><i class="fa-solid fa-flask-vial" style="color: var(--primary);"></i> R&D Project Progress Control System</h1>
+            <p style="color: var(--text-muted); font-size: 14px; margin-top: 4px;">Researcher Milestone Tracking, Automated Delay Warnings & Corrective Action Management</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-outline" onclick="exportDelayedData()"><i class="fa-solid fa-file-export"></i> Export Delay & Action Report (CSV)</button>
+            <button class="btn btn-danger" onclick="triggerBatchEmail()"><i class="fa-solid fa-paper-plane"></i> Dispatch Batch Alert Emails</button>
+        </div>
+    </div>
+
+    <!-- Stats Summary Cards -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div>
+                <div class="label">Active R&D Projects</div>
+                <div class="val" id="stat-total">0</div>
+            </div>
+            <i class="fa-solid fa-folder-open stat-icon" style="color: var(--primary);"></i>
+        </div>
+        <div class="stat-card">
+            <div>
+                <div class="label">Delayed Projects</div>
+                <div class="val" id="stat-delayed" style="color: var(--danger);">0</div>
+            </div>
+            <i class="fa-solid fa-triangle-exclamation stat-icon" style="color: var(--danger);"></i>
+        </div>
+        <div class="stat-card">
+            <div>
+                <div class="label">On-Track Projects</div>
+                <div class="val" id="stat-ontime" style="color: var(--success);">0</div>
+            </div>
+            <i class="fa-solid fa-circle-check stat-icon" style="color: var(--success);"></i>
+        </div>
+        <div class="stat-card">
+            <div>
+                <div class="label">Average Completion</div>
+                <div class="val" id="stat-avg-progress">0%</div>
+            </div>
+            <i class="fa-solid fa-chart-line stat-icon" style="color: var(--warning);"></i>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="dashboard-grid">
+        <div class="card">
+            <div class="card-header">
+                <span><i class="fa-solid fa-chart-bar"></i> Target Progress vs. Actual Completion Rate (%)</span>
+            </div>
+            <div style="height: 280px;">
+                <canvas id="progressChart"></canvas>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <span><i class="fa-solid fa-chart-pie"></i> Project Status Distribution</span>
+            </div>
+            <div style="height: 280px; display: flex; justify-content: center;">
+                <canvas id="statusChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project Data Table -->
+    <div class="card">
+        <div class="card-header">
+            <span><i class="fa-solid fa-list-check"></i> Project Progress Details, Root Cause & Action Plans</span>
+            <span style="font-size: 12px; color: var(--text-muted); font-weight: normal;">* System runs automated checks; items exceeding deadlines are flagged as Delayed</span>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Project Code / Name</th>
+                        <th>Lead Researcher</th>
+                        <th>Current Phase</th>
+                        <th>Deadline</th>
+                        <th>Progress (%)</th>
+                        <th>Status</th>
+                        <th>Delay Root Cause</th>
+                        <th>Action Plan / Solution</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="project-table-body">
+                    <!-- Populated dynamically by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Email Notification Modal -->
+    <div class="modal-backdrop" id="emailModal">
+        <div class="modal">
+            <div class="modal-header">
+                <span><i class="fa-solid fa-envelope"></i> Send Milestone Delay Reminder Email</span>
+                <i class="fa-solid fa-xmark" style="cursor: pointer;" onclick="closeModal()"></i>
+            </div>
+            <div class="modal-body">
+                <p>Previewing automated notification to lead researcher:</p>
+                <div class="mail-preview" id="modalMailContent">
+                    <!-- Email Content Preview -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="confirmSendEmail()"><i class="fa-solid fa-paper-plane"></i> Send Notification</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast">Notification email dispatched successfully!</div>
+
+    <script>
+        // R&D Project Mock Dataset
+        const projectsData = [
+            {
+                id: "PRJ-001",
+                name: "Alzheimer's Small Molecule (SX-201)",
+                researcher: "Dr. Chih-Yuan Lin",
+                email: "chihyuan.lin@lifecare.tw",
+                phase: "CMC Formulation Scale-up",
+                deadline: "2026-08-20",
+                targetProgress: 90,
+                currentProgress: 60,
+                status: "Delayed",
+                delayReason: "Polymorphism analysis revealed unexpected crystal transformation during wet granulation.",
+                solution: "Coordinating with CDMO to add a lyophilization test line and implementing PAT to reduce validation cycle."
+            },
+            {
+                id: "PRJ-002",
+                name: "Parkinson's ER Capsule (SX-104)",
+                researcher: "Yating Chang",
+                email: "yating.chang@lifecare.tw",
+                phase: "Film Coating Scale-up",
+                deadline: "2026-08-15",
+                targetProgress: 85,
+                currentProgress: 55,
+                status: "Delayed",
+                delayReason: "Customs inspection delayed the delivery of imported enteric polymer excipients by 2 weeks.",
+                solution: "Conducted small-scale trials using backup specifications and initiated emergency procurement with secondary vendor."
+            },
+            {
+                id: "PRJ-003",
+                name: "Generic Anticoagulant (SX-088)",
+                researcher: "Chien-Hung Wang",
+                email: "chienhung.wang@lifecare.tw",
+                phase: "Accelerated Stability Study (6M)",
+                deadline: "2026-09-15",
+                targetProgress: 70,
+                currentProgress: 75,
+                status: "On-Track",
+                delayReason: "None",
+                solution: "None"
+            },
+            {
+                id: "PRJ-004",
+                name: "OSD Cleaning Validation (CV-2026)",
+                researcher: "Pei-Chen Chen",
+                email: "peichen.chen@lifecare.tw",
+                phase: "Residue Analytical Method (HPLC)",
+                deadline: "2026-09-05",
+                targetProgress: 50,
+                currentProgress: 50,
+                status: "On-Track",
+                delayReason: "None",
+                solution: "None"
+            },
+            {
+                id: "PRJ-005",
+                name: "Autoimmune Target mAb IND Filing",
+                researcher: "Dr. Chih-Yuan Lin",
+                email: "chihyuan.lin@lifecare.tw",
+                phase: "CTD Module 3 Authoring",
+                deadline: "2026-08-25",
+                targetProgress: 100,
+                currentProgress: 80,
+                status: "Delayed",
+                delayReason: "Outsourced CRO delayed delivery of histopathology toxicology evaluation reports.",
+                solution: "Issued formal reminder notice to CRO; PMO conducting weekly reviews to expedite data submission."
+            }
+        ];
+
+        let selectedProjectForEmail = null;
+        let progressChartInstance = null;
+        let statusChartInstance = null;
+
+        // Initialize view
+        window.onload = function() {
+            renderTable();
+            updateStats();
+            renderCharts();
+        };
+
+        // Render project rows
+        function renderTable() {
+            const tbody = document.getElementById('project-table-body');
+            tbody.innerHTML = '';
+
+            projectsData.forEach((item, index) => {
+                const tr = document.createElement('tr');
+
+                const statusBadge = item.status === 'Delayed' 
+                    ? `<span class="badge badge-delayed"><i class="fa-solid fa-triangle-exclamation"></i> Delayed</span>`
+                    : `<span class="badge badge-ontime"><i class="fa-solid fa-circle-check"></i> On-Track</span>`;
+
+                const actionBtn = item.status === 'Delayed'
+                    ? `<button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px;" onclick="openEmailModal(${index})"><i class="fa-solid fa-paper-plane"></i> Send Alert</button>`
+                    : `<span style="color: var(--text-muted); font-size: 12px;"><i class="fa-solid fa-check"></i> Normal</span>`;
+
+                const progressColor = item.status === 'Delayed' ? 'var(--danger)' : 'var(--primary)';
+
+                tr.innerHTML = `
+                    <td><strong>${item.id}</strong><br><span style="font-size:12px; color:var(--text-muted);">${item.name}</span></td>
+                    <td>${item.researcher}</td>
+                    <td>${item.phase}</td>
+                    <td>${item.deadline}</td>
+                    <td style="min-width: 140px;">
+                        <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:3px;">
+                            <span>Actual: ${item.currentProgress}%</span>
+                            <span style="color:var(--text-muted);">Target: ${item.targetProgress}%</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar-fill" style="width: ${item.currentProgress}%; background: ${progressColor};"></div>
+                        </div>
+                    </td>
+                    <td>${statusBadge}</td>
+                    <td style="max-width: 220px; font-size: 12px; color: ${item.status === 'Delayed' ? '#b91c1c' : 'inherit'};">${item.delayReason}</td>
+                    <td style="max-width: 220px; font-size: 12px; color: ${item.status === 'Delayed' ? '#15803d' : 'inherit'};">${item.solution}</td>
+                    <td>${actionBtn}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Update summary metrics
+        function updateStats() {
+            const total = projectsData.length;
+            const delayed = projectsData.filter(p => p.status === 'Delayed').length;
+            const ontime = total - delayed;
+            const avgProgress = Math.round(projectsData.reduce((acc, cur) => acc + cur.currentProgress, 0) / total);
+
+            document.getElementById('stat-total').innerText = total;
+            document.getElementById('stat-delayed').innerText = delayed;
+            document.getElementById('stat-ontime').innerText = ontime;
+            document.getElementById('stat-avg-progress').innerText = avgProgress + '%';
+        }
+
+        // Render Chart.js visual graphs
+        function renderCharts() {
+            // Bar chart: Target vs Actual
+            const ctx1 = document.getElementById('progressChart').getContext('2d');
+            if (progressChartInstance) progressChartInstance.destroy();
+            progressChartInstance = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: projectsData.map(p => p.id),
+                    datasets: [
+                        {
+                            label: 'Target Progress (%)',
+                            data: projectsData.map(p => p.targetProgress),
+                            backgroundColor: '#cbd5e1'
+                        },
+                        {
+                            label: 'Actual Progress (%)',
+                            data: projectsData.map(p => p.currentProgress),
+                            backgroundColor: projectsData.map(p => p.status === 'Delayed' ? '#ef4444' : '#2563eb')
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, max: 100 }
+                    }
+                }
+            });
+
+            // Doughnut chart: Delay Distribution
+            const ctx2 = document.getElementById('statusChart').getContext('2d');
+            if (statusChartInstance) statusChartInstance.destroy();
+            const delayedCount = projectsData.filter(p => p.status === 'Delayed').length;
+            const ontimeCount = projectsData.length - delayedCount;
+
+            statusChartInstance = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: ['On-Track', 'Delayed'],
+                    datasets: [{
+                        data: [ontimeCount, delayedCount],
+                        backgroundColor: ['#10b981', '#ef4444']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        // Open email preview modal
+        function openEmailModal(index) {
+            selectedProjectForEmail = projectsData[index];
+            const content = `To: ${selectedProjectForEmail.researcher} <${selectedProjectForEmail.email}>
+Subject: [URGENT] Milestone Schedule Delay Alert: Project ${selectedProjectForEmail.id}
+
+Dear ${selectedProjectForEmail.researcher},
+
+The system has detected a milestone delay in your assigned project:
+Project: ${selectedProjectForEmail.name} (${selectedProjectForEmail.id})
+Current Phase: ${selectedProjectForEmail.phase}
+
+- Target Completion: ${selectedProjectForEmail.targetProgress}%
+- Current Reported: ${selectedProjectForEmail.currentProgress}%
+- Deadline: ${selectedProjectForEmail.deadline}
+
+[Logged Root Cause]:
+${selectedProjectForEmail.delayReason}
+
+[Proposed Corrective Action]:
+${selectedProjectForEmail.solution}
+
+Please log in within 48 hours to update your milestone baseline or submit resource escalation requests.
+
+Best regards,
+R&D Project Management Office (PMO)`;
+
+            document.getElementById('modalMailContent').innerText = content;
+            document.getElementById('emailModal').style.display = 'flex';
+        }
+
+        // Close modal
+        function closeModal() {
+            document.getElementById('emailModal').style.display = 'none';
+        }
+
+        // Confirm single email dispatch
+        function confirmSendEmail() {
+            closeModal();
+            showToast(`Notification sent to ${selectedProjectForEmail.researcher} (${selectedProjectForEmail.email})`);
+        }
+
+        // Batch email dispatch
+        function triggerBatchEmail() {
+            const delayed = projectsData.filter(p => p.status === 'Delayed');
+            showToast(`Batch Job Completed: Dispatched ${delayed.length} alert notifications.`);
+        }
+
+        // Export Delayed Projects to CSV with proper UTF-8 BOM encoding
+        function exportDelayedData() {
+            const delayedProjects = projectsData.filter(p => p.status === 'Delayed');
+            
+            if (delayedProjects.length === 0) {
+                alert("No delayed projects found.");
+                return;
+            }
+
+            // CSV Header & Content
+            let csvContent = "\uFEFFProject ID,Project Name,Lead Researcher,Phase,Deadline,Target (%),Actual (%),Delay Root Cause,Action Plan & Solutions\n";
+
+            delayedProjects.forEach(p => {
+                const row = [
+                    `"${p.id}"`,
+                    `"${p.name.replace(/"/g, '""')}"`,
+                    `"${p.researcher.replace(/"/g, '""')}"`,
+                    `"${p.phase.replace(/"/g, '""')}"`,
+                    `"${p.deadline}"`,
+                    `"${p.targetProgress}%"`,
+                    `"${p.currentProgress}%"`,
+                    `"${p.delayReason.replace(/"/g, '""')}"`,
+                    `"${p.solution.replace(/"/g, '""')}"`
+                ];
+                csvContent += row.join(",") + "\n";
+            });
+
+            // Create download link with explicit MIME type & encoding
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `RD_Delay_Root_Cause_Report_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast("Delay Analysis CSV Report exported successfully!");
+        }
+
+        // Display Toast message
+        function showToast(message) {
+            const toast = document.getElementById("toast");
+            toast.innerText = message;
+            toast.className = "show";
+            setTimeout(function(){ toast.className = toast.className.replace("show", ""); }, 3000);
+        }
+    </script>
+</body>
+</html>
